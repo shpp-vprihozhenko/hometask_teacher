@@ -3,10 +3,12 @@ import 'AddPupil.dart';
 import 'EditPupil.dart';
 import 'Pupil.dart';
 import 'Services.dart' as MyServices;
+import 'globals.dart' as globals;
 
 class EditPupils extends StatefulWidget {
   final String city, school, teacher, classRoom;
-  EditPupils(this.city, this.school, this.teacher, this.classRoom);
+  final int lang;
+  EditPupils(this.city, this.school, this.teacher, this.classRoom, this.lang);
 
   @override
   _EditPupilsState createState() => _EditPupilsState();
@@ -17,6 +19,7 @@ class _EditPupilsState extends State<EditPupils> {
 
   @override
   void initState() {
+    print('globals.lang ${globals.lang}');
     pupilsList.add(Pupil('1', widget.city, widget.school, widget.classRoom, 'Прихоженко Ирина', '123'));
     pupilsList.add(Pupil('2', widget.city, widget.school, widget.classRoom, 'Терентьев Миша', '234'));
     pupilsList.add(Pupil('3', widget.city, widget.school, widget.classRoom, 'Альтаир', '345'));
@@ -34,14 +37,14 @@ class _EditPupilsState extends State<EditPupils> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.classRoom+' класс, школа №'+widget.school+' г.'+widget.city),
+        title: Text(widget.classRoom),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Text('Мои ученики:', textScaleFactor: 1.5,),
+            Text(MyServices.msgs['Мои ученики:'][widget.lang], textScaleFactor: 1.5,),
             Expanded(
               child: Scrollbar(
                 child: ListView.builder(
@@ -85,7 +88,7 @@ class _EditPupilsState extends State<EditPupils> {
 
   _addPupil(){
     print('add pupil cmd');
-    Navigator.push(context, MaterialPageRoute(builder: (context) => AddPupil(widget.city, widget.school, widget.teacher, widget.classRoom)))
+    Navigator.push(context, MaterialPageRoute(builder: (context) => AddPupil(widget.city, widget.school, widget.teacher, widget.classRoom, widget.lang)))
     .then((newPupil){
       if (newPupil == null) {
         return;
@@ -98,7 +101,7 @@ class _EditPupilsState extends State<EditPupils> {
   void _editPupil(int index) {
     print('edit pupil data $index');
     Pupil pupilToEdit = pupilsList[index];
-    Navigator.push(context, MaterialPageRoute(builder: (context) => EditPupil(pupilToEdit)))
+    Navigator.push(context, MaterialPageRoute(builder: (context) => EditPupil(pupilToEdit, widget.lang)))
     .then((value){
       setState((){});
     });

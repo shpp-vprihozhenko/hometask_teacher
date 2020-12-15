@@ -4,8 +4,9 @@ import 'Pupil.dart';
 import 'Services.dart' as MyServices;
 
 class AddPupil extends StatefulWidget {
-  String city, school, teacher, classRoom;
-  AddPupil(this.city, this.school, this.teacher, this.classRoom);
+  final String city, school, teacher, classRoom;
+  final int lang;
+  AddPupil(this.city, this.school, this.teacher, this.classRoom, this.lang);
 
   @override
   _AddPupilState createState() => _AddPupilState();
@@ -18,7 +19,7 @@ class _AddPupilState extends State<AddPupil> {
   @override
   void initState() {
     var r = Random();
-    const _chars = 'ЙйЁёЦцУуКкЕеНнГгШШщЩЗзХхЪъФфЫыВвАаПпРрОоЛлДдЖжЭэЯяЧчСсМмИиТтЬьБбЮю';
+    const _chars = 'ЙйЦцУуКкЕеНнГгШШщЩЗзХхЪъФфВвАаПпРрОоЛлДдЖжЭэЯяЧчСсМмИиТтЬьБбЮю';
     _pwdEditingController.text = List.generate(6, (index) => _chars[r.nextInt(_chars.length)]).join();
     super.initState();
   }
@@ -27,7 +28,7 @@ class _AddPupilState extends State<AddPupil> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Добавляем нового ученика '+widget.classRoom+' класса'),
+        title: Text(MyServices.msgs['Добавляем нового ученика'][widget.lang]),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -36,7 +37,7 @@ class _AddPupilState extends State<AddPupil> {
             TextField(
               maxLines: 2,
               style: TextStyle(fontSize: 18),
-              decoration: InputDecoration(labelText: 'Фамилия, имя'),
+              decoration: InputDecoration(labelText: MyServices.msgs['Фамилия и имя'][widget.lang]),
               controller: _fioEditingController,
               maxLength: 200,
             ),
@@ -70,6 +71,14 @@ class _AddPupilState extends State<AddPupil> {
 
   _saveCmd(){
     print('save with ${_fioEditingController.text} pwd ${_pwdEditingController.text}');
+    if (_fioEditingController.text.trim()=='') {
+      MyServices.showAlertPage(context, MyServices.msgs['Укажите фамилию и имя'][widget.lang]);
+      return;
+    }
+    if (_pwdEditingController.text.trim()=='') {
+      MyServices.showAlertPage(context, MyServices.msgs['Укажите пароль'][widget.lang]);
+      return;
+    }
     Pupil newPupil = Pupil('', widget.city, widget.school, widget.classRoom, _fioEditingController.text.trim(), _pwdEditingController.text.trim());
     MyServices.addPupil(newPupil)
     .then((pupil){

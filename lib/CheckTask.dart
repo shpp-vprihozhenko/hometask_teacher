@@ -8,8 +8,9 @@ import 'Services.dart' as MyServices;
 
 class CheckTask extends StatefulWidget {
   final task, classRoom, city, school, teacher;
+  final int lang;
 
-  CheckTask(this.task, this.classRoom, this.city, this.school, this.teacher);
+  CheckTask(this.task, this.classRoom, this.city, this.school, this.teacher, this.lang);
 
   @override
   _CheckTaskState createState() => _CheckTaskState();
@@ -40,10 +41,14 @@ class _CheckTaskState extends State<CheckTask> {
       pupilTaskStateList.forEach((element) {
         if (element.pupilId == pupil.id) {
           state = element.state;
+          print('got state state for $pupil');
         }
       });
       pupil.curTaskState = state;
     });
+
+    print('pupilsList $pupilsList');
+
     setState((){});
   }
 
@@ -61,13 +66,16 @@ class _CheckTaskState extends State<CheckTask> {
 
   _loadTaskImageFromServer(fileName) {
     widget.task.linksToPhotos.clear();
+    filesList.add(CircularProgressIndicator());
+    setState(() {});
+    int idx = filesList.length-1;
     MyServices.loadImageFromServer(fileName)
         .then((imageWidget){
       print('_loadImageFromServer with $imageWidget');
       if (imageWidget != null) {
         print('add to fileList');
         widget.task.linksToPhotos.add(fileName);
-        filesList.add(imageWidget);
+        filesList[idx] = imageWidget;
         setState(() {});
       }
     });
@@ -77,7 +85,7 @@ class _CheckTaskState extends State<CheckTask> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Проверка задания '+widget.classRoom+' класса'),
+        title: Text(MyServices.msgs['Задание'][widget.lang]+' для '+widget.classRoom),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -93,14 +101,15 @@ class _CheckTaskState extends State<CheckTask> {
             Row(
               children: [
                 Text('Текст ДЗ: ', textScaleFactor: 1.1,),
-                Text(widget.task.fullDescription, textScaleFactor: 1.3, style: TextStyle(color: Colors.blueAccent),),
+                Expanded(child: Text(widget.task.fullDescription, textScaleFactor: 1.3, style: TextStyle(color: Colors.blueAccent),)),
               ],
             ),
             SizedBox(height: 8,),
             Row(
               children: [
-                Text('Сроки: ', textScaleFactor: 1.1,),
-                Text(MyServices.dateRus(widget.task.dtStart)+' - '+MyServices.dateRus(widget.task.dtDeadline), textScaleFactor: 1.1, style: TextStyle(color: Colors.blue),),
+                Text(MyServices.msgs['Выдано: '][widget.lang], textScaleFactor: 1.1,),
+                Text(MyServices.dateRus(widget.task.dtStart, widget.lang), textScaleFactor: 1.1, style: TextStyle(color: Colors.blue),),
+                //Text(MyServices.dateRus(widget.task.dtStart)+' - '+MyServices.dateRus(widget.task.dtDeadline), textScaleFactor: 1.1, style: TextStyle(color: Colors.blue),),
               ],),
             SizedBox(height: 8,),
             filesList.length == 0? SizedBox()
@@ -135,7 +144,7 @@ class _CheckTaskState extends State<CheckTask> {
                   padding: const EdgeInsets.all(8.0),
                   child: Row(
                     children: [
-                      Text('Статус выполнения учениками:', textScaleFactor: 1.2, style: TextStyle(color: Colors.white)),
+                      Text(MyServices.msgs['Статус выполнения:'][widget.lang], textScaleFactor: 1.2, style: TextStyle(color: Colors.white)),
                     ],
                   ),
                 )
@@ -165,11 +174,11 @@ class _CheckTaskState extends State<CheckTask> {
   _checkPupilTask(pupil) {
     print('check solution of $pupil');
     if (pupil.curTaskState == '') {
-      MyServices.showAlertPage(context, 'Задача ещё не решена учеником.');
+      MyServices.showAlertPage(context, MyServices.msgs['Задача ещё не решена учеником'][widget.lang]);
       return;
     }
     PupilSolution pupilSolution = PupilSolution('', widget.task.id, pupil.id, [], '', '');
-    Navigator.push(context, MaterialPageRoute(builder: (context) => CheckPupilSolution(pupilSolution)))
+    Navigator.push(context, MaterialPageRoute(builder: (context) => CheckPupilSolution(pupilSolution, widget.lang)))
     .then((value){
       if (value == null) return;
       if (pupilSolution.mark != ''){

@@ -1,12 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'AddTask.dart';
 import 'CheckTask.dart';
+import 'ChooseClassRoomWidget.dart';
 import 'EditPupils.dart';
 import 'EditSettings.dart';
 import 'HomeTask.dart';
+import 'IdentifyTeacher.dart';
 import 'Services.dart' as MyServices;
 import 'EditTask.dart';
 import 'ShowArchive.dart';
+import 'Teacher.dart';
+import 'package:devicelocale/devicelocale.dart';
+import 'globals.dart' as globals;
 
 void main() {
   runApp(MyApp());
@@ -34,24 +41,142 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  final classRoom = '4Д';
-  final school = '7';
-  final city = 'Черноморск';
-  final teacher = 'Наталья Викторовна';
+  int lang = 0;
+  String classRoom = '4Д';
+  String school = '7';
+  String city = 'Черноморск';
+  String fio = 'Наталья Викторовна';
+  String teacherId = '';
+  Teacher teacher = Teacher('','','','');
+
   final List <String> pupilsList = ['Прихоженко Ирина', 'Терентьев Миша', 'Попик Дима'];
   final List <HomeTask> homeTasks = [];
+  Future<SharedPreferences> _prefs = SharedPreferences.getInstance();
 
   @override
   void initState() {
-    getHomeTasks();
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => checkIdentification(context));
+  }
+
+  // Platform messages are asynchronous, so we initialize in an async method.
+  Future<void> initPlatformState() async {
+    List languages;
+    String currentLocale;
+
+    // Platform messages may fail, so we use a try/catch PlatformException.
+    try {
+      languages = await Devicelocale.preferredLanguages;
+      print(languages);
+    } on PlatformException {
+      print("Error obtaining preferred languages");
+    }
+    try {
+      currentLocale = await Devicelocale.currentLocale;
+      print(currentLocale);
+    } on PlatformException {
+      print("Error obtaining current locale");
+    }
+
+    // If the widget was removed from the tree while the asynchronous platform
+    // message was in flight, we want to discard the reply rather than calling
+    // setState to update our non-existent appearance.
+    if (!mounted) return;
+
+    print('got phone languages $languages');
+    print('got currentLocale $currentLocale');
+    if (currentLocale == 'uk_UA') {
+      print('change program language to UA');
+      lang = 1;
+      setState(() {});
+    }
+  }
+
+  checkIdentification(ctx) async {
+    print('check id');
+    await initPlatformState();
+    SharedPreferences prefs = await _prefs;
+
+    int _lang = prefs.getInt('lang');
+    print('got lang from prefs $_lang');
+    if (_lang != null) {
+      lang = _lang;
+    }
+    globals.lang = lang;
+
+    String _id = prefs.getString('id') ?? '';
+    if (_id == null || _id == '') {
+      print('no id - identify pupil');
+      while (teacher.id == null || teacher.id == '') {
+        var res = await Navigator.push(ctx, MaterialPageRoute(builder: (context) => IdentifyTeacher(lang)));
+        if (res != null) {
+          teacher = res;
+        }
+      }
+      print('got teacher $teacher');
+      saveTeacherData(prefs);
+    } else {
+      getTeacherData(prefs);
+    }
+    print('got id ${teacher.id}');
+    fio = teacher.fio; city = teacher.city; school = teacher.school; classRoom = teacher.classRoom; teacherId = teacher.id;
+
+    if (classRoom=='') {
+      classRoom = '4Д';
+    }
+
+    setState((){});
+    getHomeTasks();
+  }
+
+  getTeacherData(prefs){
+    teacher.id = prefs.getString('id');
+    teacher.city = prefs.getString('city');
+    teacher.school = prefs.getString('school');
+    teacher.classRoom = prefs.getString('classRoom');
+    teacher.fio = prefs.getString('fio');
+    print('teacher data restored from SharedPreferences $teacher');
+  }
+
+  saveTeacherData(prefs){
+    prefs.setString("id", teacher.id);
+    prefs.setString("city", teacher.city);
+    prefs.setString("school", teacher.school);
+    prefs.setString("classRoom", teacher.classRoom);
+    prefs.setString("fio", teacher.fio);
+    print('pupil data saved into SharedPreferences $teacher');
+  }
+
+  _choosePreferredClassRoom(){
+    print('_choosePreferredClassRoom $classRoom');
+    int classLevel = int.parse(classRoom.substring(0,1));
+    print('cur class $classLevel ${classRoom.substring(1,2)}');
+    List<String> classLetters = ['А','Б','В','Г','Д','Е','Ж','З','И','К'];
+    int classLetterNumber = classLetters.indexOf(classRoom.substring(1,2));
+    if (classLetterNumber==-1) classLetterNumber = 0;
+    showDialog(
+        context: context,
+        builder: (context) {
+          return AlertDialog(
+            content: ChooseClassRoomWidget(classRoom, lang),
+          );
+        }
+    ).then((value){
+      if (value == null) return;
+      if (classRoom != value) {
+        setState(() {
+          classRoom = value;
+        });
+        getHomeTasks();
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(classRoom+' г.'+city+' школа №'+school),
+        title: FlatButton(child: Text(classRoom+' класс', textScaleFactor: 1.6, style: TextStyle(color: Colors.white),), onPressed: _choosePreferredClassRoom,),
         leading: IconButton(icon: Icon(Icons.refresh), onPressed: getHomeTasks,),
       ),
       body: Center(
@@ -59,7 +184,7 @@ class _MyHomePageState extends State<MyHomePage> {
             children: [
               Padding(
                 padding: const EdgeInsets.all(8.0),
-                child: Text('Выданные ДЗ', textScaleFactor: 2,),
+                child: Text(MyServices.msgs['Выданные ДЗ'][lang], textScaleFactor: 2,),
               ),
               Expanded(
                 child: Scrollbar(
@@ -70,7 +195,6 @@ class _MyHomePageState extends State<MyHomePage> {
                         onTap: (){_openTask(index);},
                         child: ListTile(
                           tileColor: index%2 == 1? Colors.white : Colors.grey[200],
-                          //leading: Text(homeTasks[index].lesson),
                           title: Text(homeTasks[index].lesson+': '+homeTasks[index].fullDescription),
                           subtitle: Text(homeTasks[index].dtStart.toString().substring(0,10)+' - '+homeTasks[index].dtDeadline.toString().substring(0,10)),
                           trailing: Container(
@@ -131,12 +255,12 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   void _moveToArchive(BuildContext context, int index) {
-    MyServices.askYesNo(context, 'Перести в архив?')
+    MyServices.askYesNo(context, MyServices.msgs['Перенести в архив?'][lang], lang)
     .then((value){
       print('got val on ask $value');
       if (value == null || value == false) return;
       MyServices.archTask(homeTasks[index], true)
-          .then((res){
+      .then((res){
         print('got res on arch $res');
         if (res != 'OK') {
           MyServices.showAlertPage(context, res);
@@ -149,23 +273,23 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   _editPupils(){
-    Navigator.push(context, MaterialPageRoute(builder: (context) => EditPupils(city, school, teacher, classRoom)));
+    Navigator.push(context, MaterialPageRoute(builder: (context) => EditPupils(city, school, fio, classRoom, lang)));
   }
 
   _showArchive(){
-    Navigator.push(context, MaterialPageRoute(builder: (context) => ShowArchive(city, school, teacher, classRoom)))
+    Navigator.push(context, MaterialPageRoute(builder: (context) => ShowArchive(city, school, fio, classRoom, lang)))
     .then((value){
       getHomeTasks();
     });
   }
 
   _showAbout(){
-    MyServices.showAlertPage(context, 'разработчик: \nПрихоженко Владимир, \nvprihogenko@gmail.com');
+    MyServices.showAlertPage(context, MyServices.msgs['Разработчик: \nПрихоженко Владимир, \nvprihogenko@gmail.com'][lang]);
   }
 
   _addNewTask(){
     print('add task');
-    Navigator.push(context, MaterialPageRoute(builder: (context) => AddTask(classRoom, city, school, teacher)))
+    Navigator.push(context, MaterialPageRoute(builder: (context) => AddTask(classRoom, city, school, fio, lang)))
     .then((result){
       print('got add result $result');
       if (result != null) {
@@ -177,7 +301,7 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   void getHomeTasks() {
-    MyServices.getHomeTasks(homeTasks, city, school, teacher, classRoom, false)
+    MyServices.getHomeTasks(homeTasks, city, school, fio, classRoom, false)
     .then((value) {
       setState((){});
     });
@@ -187,12 +311,12 @@ class _MyHomePageState extends State<MyHomePage> {
   _openTask(int index) {
     print('here I\'ll open task $index to check by teacherrt');
     HomeTask task = homeTasks[index];
-    Navigator.push(context, MaterialPageRoute(builder: (context) => CheckTask(task, classRoom, city, school, teacher)));
+    Navigator.push(context, MaterialPageRoute(builder: (context) => CheckTask(task, classRoom, city, school, fio, lang)));
   }
 
   _editTask(index) {
     HomeTask taskToEdit = homeTasks[index];
-    Navigator.push(context, MaterialPageRoute(builder: (context) => EditTask(taskToEdit, classRoom, city, school, teacher)))
+    Navigator.push(context, MaterialPageRoute(builder: (context) => EditTask(taskToEdit, classRoom, city, school, fio, lang)))
         .then((result){
       print('got edit result $result');
       if (result != null) {
@@ -202,6 +326,22 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   _settingsPage(){
-    Navigator.push(context, MaterialPageRoute(builder: (context) => EditSettings(city, school, teacher, classRoom)));
+    Navigator.push(context, MaterialPageRoute(builder: (context) => EditSettings(city, school, fio, classRoom, teacherId, lang)))
+    .then((value){
+      print('got lang value in main $value');
+      if (value == null) return;
+      if (value == lang) return;
+      lang = value;
+      print('update lang to $lang');
+      globals.lang = lang;
+      setState(() {});
+      _saveLangPrefs();
+    });
   }
+
+  _saveLangPrefs() async {
+    SharedPreferences prefs = await _prefs;
+    prefs.setInt("lang", lang);
+  }
+
 }

@@ -4,7 +4,8 @@ import 'HomeTask.dart';
 
 class ShowArchive extends StatefulWidget {
   final String city, school, teacher, classRoom;
-  ShowArchive(this.city, this.school, this.teacher, this.classRoom);
+  final int lang;
+  ShowArchive(this.city, this.school, this.teacher, this.classRoom, this.lang);
 
   @override
   _ShowArchiveState createState() => _ShowArchiveState();
@@ -22,14 +23,14 @@ class _ShowArchiveState extends State<ShowArchive> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.classRoom+' школа №'+widget.school+' г.'+widget.city),
+        title: Text(widget.classRoom),
       ),
       body: Center(
           child: Column(
             children: [
               Padding(
                 padding: const EdgeInsets.all(8.0),
-                child: Text('Архив ДЗ', textScaleFactor: 2,),
+                child: Text(MyServices.msgs['Архив ДЗ'][widget.lang], textScaleFactor: 2,),
               ),
               Expanded(
                 child: Scrollbar(
@@ -76,7 +77,7 @@ class _ShowArchiveState extends State<ShowArchive> {
   }
 
   _moveFromArchive(index){
-    MyServices.askYesNo(context, 'Перести обратно из архива?')
+    MyServices.askYesNo(context, 'Перести обратно из архива?', widget.lang)
         .then((value){
       print('got val on ask $value');
       if (value == null || value == false) return;

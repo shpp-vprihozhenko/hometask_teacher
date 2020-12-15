@@ -1,6 +1,4 @@
-import 'dart:convert';
 import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'PhotoView.dart';
@@ -8,8 +6,9 @@ import 'Services.dart' as MyServices;
 
 class EditTask extends StatefulWidget {
   final taskToEdit, classRoom, city, school, teacher;
+  final int lang;
 
-  EditTask(this.taskToEdit, this.classRoom, this.city, this.school, this.teacher);
+  EditTask(this.taskToEdit, this.classRoom, this.city, this.school, this.teacher, this.lang);
 
   @override
   _EditTaskState createState() => _EditTaskState();
@@ -21,14 +20,39 @@ class _EditTaskState extends State<EditTask> {
   String _selectedLesson = '';
   DateTime dtDeadline;
   List <Widget> filesList = [];
+  bool showProgressIndicator = false;
+  List <DropdownMenuItem<String>> lessonsDDI = [];
 
   @override
   void initState() {
     dtDeadline = widget.taskToEdit.dtDeadline;
     _textEditingController.text = widget.taskToEdit.fullDescription;
     _selectedLesson = widget.taskToEdit.lesson;
+    loadLessonsDDI();
     loadImages();
     super.initState();
+  }
+
+  loadLessonsDDI() {
+    lessonsDDI.add(
+        DropdownMenuItem(
+          value: widget.taskToEdit.lesson,
+          child: new Text(widget.taskToEdit.lesson, style: TextStyle(color: Colors.blue), textScaleFactor: 1.1,),
+        )
+    );
+    MyServices.getLessons()
+        .then((value){
+      if (value == null) return;
+      value.forEach((el){
+        if (el == widget.taskToEdit.lesson) return;
+        print('add to ddm $el');
+        lessonsDDI.add(DropdownMenuItem(
+          value: el,
+          child: new Text(el, style: TextStyle(color: Colors.blue), textScaleFactor: 1.1,),
+        ));
+      });
+      setState(() {});
+    });
   }
 
   loadImages() {
@@ -45,13 +69,18 @@ class _EditTaskState extends State<EditTask> {
 
   _loadTaskImageFromServer(fileName) {
     widget.taskToEdit.linksToPhotos.clear();
+    filesList.add(CircularProgressIndicator());
+    setState(() {});
+    int curElemPos = filesList.length-1;
+    print('got pos $curElemPos');
     MyServices.loadImageFromServer(fileName)
     .then((imageWidget){
       print('_loadImageFromServer with $imageWidget');
       if (imageWidget != null) {
-        print('add to fileList');
+        print('add to fileList $fileName');
         widget.taskToEdit.linksToPhotos.add(fileName);
-        filesList.add(imageWidget);
+        filesList[curElemPos] = imageWidget;
+        print('place foto at $curElemPos');
         setState(() {});
       }
     });
@@ -61,7 +90,8 @@ class _EditTaskState extends State<EditTask> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Задание для '+widget.classRoom+' класса'),
+        title: Text(widget.classRoom),
+        //leading: IconButton(icon: Icon(Icons.refresh), onPressed: _doTest,),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -73,7 +103,7 @@ class _EditTaskState extends State<EditTask> {
                 DropdownButton<String>(
                   hint: Text("Урок"),
                   value: _selectedLesson,
-                  items: _lessonsDDI(),
+                  items: lessonsDDI,
                   onChanged: (String val) {
                     setState(() {
                       _selectedLesson = val;
@@ -85,11 +115,12 @@ class _EditTaskState extends State<EditTask> {
             TextField(
               maxLines: 2,
               style: TextStyle(fontSize: 18),
-              decoration: InputDecoration(labelText: 'Описание ДЗ'),
+              decoration: InputDecoration(labelText: 'Текст ДЗ'),
               controller: _textEditingController,
               maxLength: 200,
             ),
             SizedBox(height: 20,),
+            /*
             Text('Крайний срок:', textScaleFactor: 1.1,),
             Row(mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -109,23 +140,25 @@ class _EditTaskState extends State<EditTask> {
                   },
                 ),
               ],),
+
+             */
             SizedBox(height: 14,),
             Container(
                 padding: EdgeInsets.all(10),
                 color: Colors.grey[400],
-                child: Text('Добавить фото', textScaleFactor: 1.1, textAlign: TextAlign.center,)
+                child: Text('Фото', textScaleFactor: 1.1, textAlign: TextAlign.center,)
             ),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 RaisedButton(
                   onPressed: (){_addImageFrom('Camera');},
-                  child: Text('Сфотографировать'),
+                  child: Text(MyServices.msgs['Сфотографировать'][widget.lang]),
                 ),
                 SizedBox(width: 14),
                 RaisedButton(
                   onPressed: (){_addImageFrom('Gallery');},
-                  child: Text('Из галереи'),
+                  child: Text('Галерея'),
                 ),
               ],
             ),
@@ -181,7 +214,9 @@ class _EditTaskState extends State<EditTask> {
       floatingActionButton: Container(
         width: 80, height: 80,
         child: FittedBox(
-          child: FloatingActionButton(
+          child: showProgressIndicator?
+          CircularProgressIndicator() :
+          FloatingActionButton(
             backgroundColor: Colors.greenAccent,
             foregroundColor: Colors.black,
             heroTag: 'btnOk',
@@ -194,23 +229,12 @@ class _EditTaskState extends State<EditTask> {
     );
   }
 
-  _lessonsDDI() {
-    List <DropdownMenuItem<String>> res = [];
-    MyServices.getLessons().forEach((el){
-      res.add(DropdownMenuItem(
-        value: el,
-        child: new Text(el, style: TextStyle(color: Colors.blue), textScaleFactor: 1.1,),
-      ));
-    });
-    return res;
-  }
-
   void _addImageFrom(source) async {
     File file;
     if (source=='Camera') {
-      file = await ImagePicker.pickImage(source: ImageSource.camera);
+      file = await ImagePicker.pickImage(source: ImageSource.camera, maxWidth: 2000, maxHeight: 2000);
     } else {
-      file = await ImagePicker.pickImage(source: ImageSource.gallery);
+      file = await ImagePicker.pickImage(source: ImageSource.gallery, maxWidth: 2000, maxHeight: 2000);
     }
     if (file == null) return;
 
@@ -226,19 +250,23 @@ class _EditTaskState extends State<EditTask> {
     widget.taskToEdit.dtDeadline = dtDeadline;
     widget.taskToEdit.fullDescription = _textEditingController.text;
     widget.taskToEdit.lesson = _selectedLesson;
+    showProgressIndicator = true;
+    setState(() {});
     MyServices.updateTask(widget.taskToEdit, widget.city, widget.school, widget.teacher, _selectedLesson)
     .then((value) {
       if (value.body.toString().substring(0,2)=='OK') {
         Navigator.pop(context, 'ok');
       } else {
         MyServices.showAlertPage(context, 'Ошибка. ${value.body}');
+        showProgressIndicator = false;
+        setState(() {});
       }
     });
   }
 
   _delImg(idx){
     print('del img ${widget.taskToEdit.linksToPhotos[idx]}');
-    MyServices.askYesNo(context, "Точно удалять?")
+    MyServices.askYesNo(context, "Точно удалять?", widget.lang)
     .then((resp){
       if (resp != null && resp == true) {
         MyServices.delImageFromServer(widget.taskToEdit.id, widget.taskToEdit.linksToPhotos[idx])

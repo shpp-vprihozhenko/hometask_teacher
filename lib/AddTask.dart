@@ -1,15 +1,14 @@
 import 'package:flutter/material.dart';
 import 'HomeTask.dart';
 import 'dart:io';
-import 'dart:convert';
-import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'PhotoView.dart';
 import 'Services.dart' as MyServices;
 
 class AddTask extends StatefulWidget {
   final classRoom, city, school, teacher;
-  AddTask(this.classRoom, this.city, this.school, this.teacher);
+  final int lang;
+  AddTask(this.classRoom, this.city, this.school, this.teacher, this.lang);
 
   @override
   _AddTaskState createState() => _AddTaskState();
@@ -22,13 +21,43 @@ class _AddTaskState extends State<AddTask> {
   TextEditingController _textEditingController = TextEditingController();
   DateTime dtDeadline = DateTime.now().add(const Duration(days: 5));
   ScrollController _sc = ScrollController();
-  String _selectedLesson = '';
+  String _selectedLesson = '...';
+  bool showProgressWhileSave = false;
+  List <DropdownMenuItem<String>> lessonsDDI = [];
+
+
+  @override
+  void initState() {
+    loadLessonsDDI();
+    super.initState();
+  }
+
+  loadLessonsDDI() {
+    lessonsDDI.add(
+      DropdownMenuItem(
+        value: '...',
+        child: new Text('...', style: TextStyle(color: Colors.blue), textScaleFactor: 1.1,),
+      )
+    );
+    MyServices.getLessons()
+        .then((value){
+      if (value == null) return;
+      value.forEach((el){
+        print('add to ddm $el');
+        lessonsDDI.add(DropdownMenuItem(
+          value: el,
+          child: new Text(el, style: TextStyle(color: Colors.blue), textScaleFactor: 1.1,),
+        ));
+      });
+      setState(() {});
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
         appBar: AppBar(
-          title: Text('Задание для '+widget.classRoom+' класса'),
+          title: Text('+ ДЗ для '+widget.classRoom),
         ),
         body: Padding(
           padding: const EdgeInsets.all(16.0),
@@ -40,7 +69,7 @@ class _AddTaskState extends State<AddTask> {
                   DropdownButton<String>(
                     hint: Text("Урок"),
                     value: _selectedLesson,
-                    items: _lessonsDDI(),
+                    items: lessonsDDI,
                     onChanged: (String val) {
                       setState(() {
                         _selectedLesson = val;
@@ -52,11 +81,12 @@ class _AddTaskState extends State<AddTask> {
               TextField(
                 maxLines: 2,
                 style: TextStyle(fontSize: 18),
-                decoration: InputDecoration(labelText: 'Описание ДЗ'),
+                decoration: InputDecoration(labelText: 'Текст ДЗ'),
                 controller: _textEditingController,
                 maxLength: 200,
               ),
               SizedBox(height: 20,),
+              /*
               Text('Крайний срок:', textScaleFactor: 1.1,),
               Row(mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -77,23 +107,25 @@ class _AddTaskState extends State<AddTask> {
                     },
                   ),
               ],),
+
+               */
               SizedBox(height: 14,),
               Container(
                 padding: EdgeInsets.all(10),
                 color: Colors.grey[400],
-                child: Text('Добавить фото', textScaleFactor: 1.1, textAlign: TextAlign.center,)
+                child: Text('Фото', textScaleFactor: 1.1, textAlign: TextAlign.center,)
               ),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   RaisedButton(
                     onPressed: _chooseImageFromCamera,
-                    child: Text('Сфотографировать'),
+                    child: Text(MyServices.msgs['Сфотографировать'][widget.lang]),
                   ),
                   SizedBox(width: 14),
                   RaisedButton(
                     onPressed: _chooseImageFromGallery,
-                    child: Text('Из галереи'),
+                    child: Text('Галерея'),
                   ),
                 ],
               ),
@@ -110,13 +142,17 @@ class _AddTaskState extends State<AddTask> {
                     itemCount: filesList.length,
                     itemBuilder:  (BuildContext context, int index) {
                       int backIdx =  filesList.length - index - 1;
+                      Image _img = Image.file(filesList[backIdx]);
                       return GestureDetector(
                         child: Padding(
                           padding: const EdgeInsets.all(8.0),
-                          child: Image.file(filesList[backIdx], width: 150, height: 150,),
+                          child: Container(
+                              height: 150, width: 150,
+                              child: _img,
+                          )
                         ),
                         onTap: (){
-                          Navigator.push(context, MaterialPageRoute(builder: (context) => PhotoView(filesList[backIdx])));
+                          Navigator.push(context, MaterialPageRoute(builder: (context) => PhotoView(_img)));
                         },
                       );
                     }
@@ -131,21 +167,24 @@ class _AddTaskState extends State<AddTask> {
         floatingActionButton: Container(
           width: 80, height: 80,
           child: FittedBox(
-            child: FloatingActionButton(
-              backgroundColor: Colors.greenAccent,
-              foregroundColor: Colors.black,
-              heroTag: 'btnOk',
-              onPressed: _addTaskCmd,
-              tooltip: 'Подтвердить',
-              child: Icon(Icons.done_rounded, size: 40,),//      bottomNavigationBar: Container(
-            ),
+            child: showProgressWhileSave?
+              CircularProgressIndicator()
+              :
+              FloatingActionButton(
+                backgroundColor: Colors.greenAccent,
+                foregroundColor: Colors.black,
+                heroTag: 'btnOk',
+                onPressed: _addTaskCmd,
+                tooltip: 'Подтвердить',
+                child: Icon(Icons.done_rounded, size: 40,),//      bottomNavigationBar: Container(
+              ),
           ),
         ),
     );
   }
 
   void _chooseImageFromCamera() async {
-    file = await ImagePicker.pickImage(source: ImageSource.camera);
+    file = await ImagePicker.pickImage(source: ImageSource.camera, maxWidth: 2000, maxHeight: 2000);
     if (file == null) return;
     setState(() {
       filesList.add(file);
@@ -153,7 +192,7 @@ class _AddTaskState extends State<AddTask> {
   }
 
   void _chooseImageFromGallery() async {
-    file = await ImagePicker.pickImage(source: ImageSource.gallery);
+    file = await ImagePicker.pickImage(source: ImageSource.gallery, maxWidth: 2000, maxHeight: 2000);
     if (file == null) return;
     setState(() {
       filesList.add(file);
@@ -161,7 +200,7 @@ class _AddTaskState extends State<AddTask> {
   }
 
   void _addTaskCmd() {
-    if (_selectedLesson == '') {
+    if (_selectedLesson == '' || _selectedLesson == '...') {
       MyServices.showAlertPage(context, 'Выберите урок');
       return;
     }
@@ -178,6 +217,10 @@ class _AddTaskState extends State<AddTask> {
     newTask.teacher = widget.teacher;
     newTask.classRoom = widget.classRoom;
 
+    setState(() {
+      showProgressWhileSave = true;
+    });
+
     MyServices.addNewTask(newTask)
     .then((value) async {
       List<String> lv = value.body.toString().split(' ');
@@ -188,28 +231,21 @@ class _AddTaskState extends State<AddTask> {
         Navigator.pop(context, newTask);
       } else {
         MyServices.showAlertPage(context, 'Ошибка. ${value.body}');
+        setState(() {
+          showProgressWhileSave = false;
+        });
       }
     });
   }
 
   uploadTaskImages(newTask) async {
     print('uploading new task images');
-    for (int i=0; i<filesList.length; i++) {
+    for (int i=0; i < filesList.length; i++) {
+      file = filesList[i];
       await MyServices.uploadImage(newTask, file);
-      print('$i');
+      print('uplading $i as $file');
     }
     print('has got uploading new task images');
-  }
-
-  _lessonsDDI() {
-    List <DropdownMenuItem<String>> res = [];
-    MyServices.getLessons().forEach((el){
-      res.add(DropdownMenuItem(
-        value: el,
-        child: new Text(el, style: TextStyle(color: Colors.blue), textScaleFactor: 1.1,),
-      ));
-    });
-    return res;
   }
 
   @override

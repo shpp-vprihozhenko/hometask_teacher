@@ -3,6 +3,9 @@ import 'City.dart';
 import 'Services.dart' as MyServices;
 
 class AddCity extends StatefulWidget {
+  final int lang;
+  AddCity(this.lang);
+
   @override
   _AddCityState createState() => _AddCityState();
 }
@@ -14,7 +17,7 @@ class _AddCityState extends State<AddCity> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Добавляем новый город'),
+        title: Text(MyServices.msgs['Добавляем новый город'][widget.lang]),
       ),
       body: Padding(
         padding: const EdgeInsets.all(8.0),
@@ -22,7 +25,7 @@ class _AddCityState extends State<AddCity> {
             child: TextField(
               maxLines: 2,
               style: TextStyle(fontSize: 18),
-              decoration: InputDecoration(labelText: 'Введите название нового города'),
+              decoration: InputDecoration(labelText: MyServices.msgs['Введите название нового города'][widget.lang]),
               controller: _cityController,
               maxLength: 200,
             ),
@@ -41,14 +44,17 @@ class _AddCityState extends State<AddCity> {
     String newCity = _cityController.text.trim();
     print('got city $newCity');
     if (newCity == '') {
-      MyServices.showAlertPage(context, 'Укажите название города.');
+      MyServices.showAlertPage(context, MyServices.msgs['Введите название нового города'][widget.lang]);
       return;
     }
-    RegExp _regExp = RegExp(r'^[a-zA-Z_ .А-Яа-я]*$');
+    /*
+    RegExp _regExp = RegExp(r'^[a-zA-Z_ .А-Яа-яіІєЄїЇ’]*$');
     if (!_regExp.hasMatch(newCity)){
       MyServices.showAlertPage(context, 'Укажите корректное название населённого пункта.');
       return;
     }
+
+     */
     MyServices.addCity(newCity)
     .then((newId){
       if (newId == null) {

@@ -7,8 +7,9 @@ import 'ZoomableImage.dart';
 
 class CheckPupilSolution extends StatefulWidget {
   final PupilSolution pupilSolution;
+  final int lang;
 
-  CheckPupilSolution(this.pupilSolution);
+  CheckPupilSolution(this.pupilSolution, this.lang);
 
   @override
   _CheckPupilSolutionState createState() => _CheckPupilSolutionState();
@@ -28,6 +29,7 @@ class _CheckPupilSolutionState extends State<CheckPupilSolution> {
 
   loadSol() async {
     await MyServices.getPupilSolution(widget.pupilSolution);
+
     if (widget.pupilSolution.mark != null) {
       print('try parse ${widget.pupilSolution.mark}');
       try {
@@ -35,6 +37,9 @@ class _CheckPupilSolutionState extends State<CheckPupilSolution> {
         setState(() {});
       } catch(e) {}
     }
+
+    setState(() {});
+
     if (widget.pupilSolution.files.length > 0) {
       imgList.clear();
       for (int i=0; i < widget.pupilSolution.files.length; i++ ){
@@ -58,7 +63,7 @@ class _CheckPupilSolutionState extends State<CheckPupilSolution> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Проверка ДЗ'),
+        title: Text(MyServices.msgs['Проверка'][widget.lang]+' ДЗ'),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -66,7 +71,7 @@ class _CheckPupilSolutionState extends State<CheckPupilSolution> {
           children: [
             Row(mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text('Оценка:', textScaleFactor: 1.2,),
+                Text(MyServices.msgs['Оценка:'][widget.lang], textScaleFactor: 1.2,),
                 IconButton(icon: Icon(Icons.fast_rewind), color: Colors.blueAccent,
                   onPressed: (){
                     setState(() {
@@ -91,7 +96,7 @@ class _CheckPupilSolutionState extends State<CheckPupilSolution> {
               color: Colors.grey[200],
               child: Row(
                 children: [
-                  Expanded(child: Text('Решение ученика:', textScaleFactor: 1.2,)),
+                  Expanded(child: Text(MyServices.msgs['Решение ученика:'][widget.lang], textScaleFactor: 1.2,)),
                   IconButton(icon: Icon(Icons.refresh), onPressed: loadSol),
                 ],
               )
@@ -119,9 +124,9 @@ class _CheckPupilSolutionState extends State<CheckPupilSolution> {
                                     MyServices.updateImage(value['bytes'], imgNames[index], "solution")
                                     .then((value){
                                       if (value == 'OK') {
-                                        MyServices.showAlertPage(context, 'Обновил');
+                                        //MyServices.showAlertPage(context, 'Обновил');
                                       } else {
-                                        MyServices.showAlertPage(context, 'Не смог обновить фото на сервере.\r\n$value');
+                                        MyServices.showAlertPage(context, 'Ошибка. Не смог обновить фото на сервере.\r\n$value');
                                       }
                                     });
                                   }
@@ -152,7 +157,7 @@ class _CheckPupilSolutionState extends State<CheckPupilSolution> {
   }
 
   _saveCheckCmd() async {
-    bool answer = await MyServices.askYesNo(context, 'Вы хотите поставить оценку $mark?');
+    bool answer = await MyServices.askYesNo(context, MyServices.msgs['Вы хотите поставить оценку'][widget.lang]+' $mark?', widget.lang);
     if (answer == null || answer == false) {
       return;
     }

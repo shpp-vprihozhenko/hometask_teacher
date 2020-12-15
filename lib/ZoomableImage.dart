@@ -6,8 +6,9 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
-import 'package:image_editor/image_editor.dart';
-//import 'package:image/image.dart' as img;
+//import 'package:image_editor/image_editor.dart';
+import 'package:image/image.dart' as img;
+//import 'package:bitmap/bitmap.dart';
 
 
 class ZoomableImage extends StatefulWidget {
@@ -34,10 +35,10 @@ class ZoomableImage extends StatefulWidget {
 
         /// Placeholder widget to be used while [image] is being resolved.
         this.placeholder = const Center(child: const CircularProgressIndicator()),
-        //}) : super(key: key);
+      //}) : super(key: key);
       })
   {
-    this.image = MemoryImage(this.imageBytes);
+   this.image = MemoryImage(this.imageBytes);
   }
 
   @override
@@ -51,8 +52,8 @@ class _ZoomableImageState extends State<ZoomableImage> {
   List<List <Offset>> lines = [];
 
   ImageStream _imageStream;
-  ui.Image _image; //, _image2;
-  //img.Image _paintingImage;
+  ui.Image _image;
+  img.Image _paintingImage;
 
   Size _imageSize;
 
@@ -169,68 +170,84 @@ class _ZoomableImageState extends State<ZoomableImage> {
       }
 
       return Stack(children: [
-        editMode?
-        GestureDetector(
-          child: paintWidget(),
-          onPanStart: _onPanStart,
-          onPanUpdate: _onPanUpdate,
-          onPanEnd: _onPanEnd,
-        )
-            : GestureDetector(
-          child: paintWidget(),
-          onTap: widget.onTap,
-          onDoubleTap: _handleDoubleTap(ctx),
-          onScaleStart: _handleScaleStart,
-          onScaleUpdate: _handleScaleUpdate,
-        ),
-        Positioned(
-          bottom: 0, right: 0,
-          child: Row(
-            children: [
-              FloatingActionButton(
-                heroTag: 'editTag',
-                backgroundColor: editMode? Colors.green: Colors.blue,
-                child: Icon(Icons.edit),
-                onPressed: (){
-                  if (!editMode) {
-                    setState(() {
-                      editMode = true;
-                    });
-                  } else {
-                    if (lines.length > 0){
-                      print('need to update img');
-                      addLinesToImg();
+          editMode?
+            GestureDetector(
+              child: paintWidget(),
+              onPanStart: _onPanStart,
+              onPanUpdate: _onPanUpdate,
+              onPanEnd: _onPanEnd,
+            )
+          : GestureDetector(
+            child: paintWidget(),
+            onTap: widget.onTap,
+            onDoubleTap: _handleDoubleTap(ctx),
+            onScaleStart: _handleScaleStart,
+            onScaleUpdate: _handleScaleUpdate,
+          ),
+          Positioned(
+            bottom: 16, right: 16,
+            child: Row(
+              children: [
+                editMode?
+                  FloatingActionButton(
+                    heroTag: 'undoTag',
+                    backgroundColor: Colors.grey,
+                    child: Icon(Icons.undo, size: 32),
+                    onPressed: (){
+                      if (lines.length > 0){
+                        lines.removeAt(lines.length-1);
+                        setState(() {});
+                      }
+                    },
+                  )
+                : SizedBox(),
+                SizedBox(width: 16),
+                FloatingActionButton(
+                  heroTag: 'editTag',
+                  backgroundColor: editMode? Colors.green: Colors.blue,
+                  child: Icon(Icons.edit, size: 36),
+                  onPressed: (){
+                    if (!editMode) {
+                      setState(() {
+                        editMode = true;
+                      });
+                    } else {
+                      if (lines.length > 0){
+                        print('need to update img');
+                        addLinesToImg();
+                      }
+                      setState(() {
+                        editMode = false;
+                      });
                     }
-                    setState(() {
-                      editMode = false;
-                    });
-                  }
-                },
-              ),
-              SizedBox(width: 16),
-              FloatingActionButton(
-                heroTag: 'saveTag',
-                backgroundColor: editMode? Colors.green: Colors.blue,
-                child: Icon(Icons.done),
-                onPressed: (){
-                  _ok();
-                },
-              ),
-              SizedBox(width: 16),
-            ],
+                  },
+                ),
+                SizedBox(width: 16),
+                Container(
+                  width: 70, height: 70,
+                  child: FloatingActionButton(
+                    heroTag: 'saveTag',
+                    backgroundColor: Colors.greenAccent,
+                    child: Icon(Icons.done, size: 50, color: Colors.black,),
+                    onPressed: (){
+                      _ok();
+                    },
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-        updateMode == false? SizedBox()
-            : Positioned(
-          top: MediaQuery.of(context).size.height/2,
-          left: MediaQuery.of(context).size.width/2,
-          child: Row(
-            children: [
-              CircularProgressIndicator(),
-            ],
+          updateMode == false? SizedBox()
+          : Positioned(
+            top: MediaQuery.of(context).size.height/2,
+            left: MediaQuery.of(context).size.width/2,
+            child: Row(
+              children: [
+                CircularProgressIndicator(),
+              ],
+            ),
           ),
-        ),
-      ]);
+        ]);
     });
   }
 
@@ -268,19 +285,15 @@ class _ZoomableImageState extends State<ZoomableImage> {
     setState(() {
       _image = info.image;
     });
-
-    /*
     if (_paintingImage == null) {
-      print('create painting layer img');
-      _paintingImage = img.Image(_image.width, _image.height);
-      decodeImageFromList(img.encodePng(_paintingImage))
-      .then((value){
-        _image2 = value;
-        print('got trans _img2 $_image2');
-      });
+      loadImage2();
     }
-     */
+  }
 
+  loadImage2() async {
+    print('create painting img ${_image.width} x ${_image.height}');
+    _paintingImage = img.decodeImage(widget.imageBytes);
+    print('got _paintingImage $_paintingImage');
   }
 
   @override
@@ -312,22 +325,11 @@ class _ZoomableImageState extends State<ZoomableImage> {
     setState((){});
   }
 
-  Future <void> addLinesToImg() async {
-
-//    RenderRepaintBoundary boundary =
-//    _globalKey.currentContext.findRenderObject();
-//
-//    print('got boundary $boundary');
-//
-//    var image = await boundary.toImage();
-//    ByteData byteData = await image.toByteData(format: ImageByteFormat.png);
-//    Image newImg = Image.memory(byteData.buffer.asUint8List());
+Future <void> addLinesToImg() async {
 
     setState(() {
       updateMode = true;
     });
-
-    final opt = ImageEditorOption();
 
     print('start add lines to layer');
     lines.forEach((line){
@@ -338,24 +340,22 @@ class _ZoomableImageState extends State<ZoomableImage> {
         Offset _start = (-_offset + line[i]) / _scale;
         Offset _fin = (-_offset + line[i+1]) / _scale;
 
-        //img.drawLine(_paintingImage, _start.dx.toInt(), _start.dy.toInt(), _fin.dx.toInt(), _fin.dy.toInt(), img.getColor(255, 0, 0), thickness: 5);
-
-        addLineOpt(_start, _fin, opt);
+        img.drawLine(_paintingImage, _start.dx.toInt(), _start.dy.toInt(), _fin.dx.toInt(), _fin.dy.toInt(), img.getColor(255, 0, 0), thickness: 5);
       }
       line.clear();
     });
     print('end add lines to layer');
 
-    /*
-    List<int> _png = img.encodePng(_paintingImage);
-    print('got png');
-    _image2 = await decodeImageFromList(_png);
-     */
+    //widget.imageBytes = await ImageEditor.editImage(image: widget.imageBytes, imageEditorOption: opt);
 
-    widget.imageBytes = await ImageEditor.editImage(image: widget.imageBytes, imageEditorOption: opt);
-    widget.image = MemoryImage(widget.imageBytes);
+    //widget.image = MemoryImage(widget.imageBytes);
+
+    widget.imageBytes = img.encodeJpg(_paintingImage);
+    print('got jpg');
+
     _image = await decodeImageFromList(widget.imageBytes);
 
+    //_image = await decodeImageFromList(widget.imageBytes);
     //_resolveImage();
     print('step 4');
 
@@ -366,20 +366,6 @@ class _ZoomableImageState extends State<ZoomableImage> {
     });
   }
 
-  addLineOpt(from, to, opt) {
-    var item = LineDrawPart(
-      start: from,
-      end: to,
-      paint: DrawPaint(
-          lineWeight: 5,
-          paintingStyle: PaintingStyle.stroke,
-          color: Colors.red),
-    );
-    opt.outputFormat = OutputFormat.png(100);
-    opt.addOption(
-      DrawOption()..addDrawPart(item),
-    );
-  }
 }
 
 Future<Uint8List> loadFromAsset(String key) async {
@@ -392,7 +378,6 @@ class _ZoomableImagePainter extends CustomPainter {
   final Offset offset;
   final double scale;
   List<List <Offset>> lines;
-  //final ui.Image image2;
 
   _ZoomableImagePainter(this.image, this.offset, this.scale, this.lines);
 
@@ -409,17 +394,6 @@ class _ZoomableImagePainter extends CustomPainter {
       fit: BoxFit.fill,
     );
 
-    /*
-    if (image2 != null) {
-      paintImage(
-        canvas: canvas,
-        rect: offset & targetSize,
-        image: image2,
-        fit: BoxFit.fill,
-      );
-    }
-     */
-
     Paint p = Paint();
     p.color = Colors.green;
     p.strokeWidth = 5;
@@ -433,11 +407,6 @@ class _ZoomableImagePainter extends CustomPainter {
         Offset endPoint = line[i+1];
         canvas.drawLine(startPoint, endPoint, p);
       }
-      /*
-      Offset startPoint = line.first;
-      Offset endPoint = line.last;
-      canvas.drawLine(startPoint, endPoint, p);
-       */
     });
 
   }

@@ -10,6 +10,17 @@ const ObjectID = require('mongodb').ObjectID;
 const uri = "mongodb://localhost:27017";
 const client = new MongoClient(uri, {useNewUrlParser: true, useUnifiedTopology: true});
 
+client.connect(err => {
+	console.log('mongo client connect');
+	if (err) {
+		console.error('some err on connect to mongo', err);
+		res.send(err);
+		return;
+	} else {
+		console.log('connected!');
+	}
+});
+
 
 var app = express();
 
@@ -27,38 +38,6 @@ app.listen(6613, function () {
 });
 
 
-/*
-app.post("/add_task_image", function(req, res){
-  var taskID = req.body.taskID;
-  var name = req.body.name;
-  name = conv2Eng(name);
-  var img = req.body.image;
-  var realFile = Buffer.from(img, "base64");
-  fs.writeFile("tasks_images/"+name, realFile, function(err) {
-      if(err)
-         console.log(err);
-  });
-  res.send("OK");
-  addImg2HomeTaskCol(taskID, name);
-});
-
-function addImg2HomeTaskCol(taskID, name){
-	client.connect(err => {
-		console.log('mongo client connect');
-		if (err) {
-			console.error('some err on connect to mongo', err);
-			res.send(err);
-			return;
-		}
-		homeTasksCol = client.db("homeTasks").collection("tasks");
-
-		homeTasksCol.update(
-		   { _id: ObjectID(taskID) },
-		   { $push: { imgFileNames: name } }
-		);
-	});	
-}
-*/
 app.post('/add_task', function (req, res) {
 	console.log('add_task body',req.body);
 
@@ -68,50 +47,34 @@ app.post('/add_task', function (req, res) {
 		return;
 	}
 
-	client.connect(err => {
-		console.log('mongo client connect');
-		if (err) {
-			console.error('some err on connect to mongo', err);
-			res.send(err);
-			return;
-		}
-		homeTasksCol = client.db("homeTasks").collection("tasks");
+	homeTasksCol = client.db("homeTasks").collection("tasks");
 
-		homeTasksCol.insertOne(req.body, (err, newTask)=>{
-			if (err) {
-				console.log('Ошибка при создании newTask(', err) 
-				res.send(err);
-			} else {
-				console.log('ok ins newTask id', newTask.insertedId);
-				res.send("OK " + newTask.insertedId);
-			}
-		});
+	homeTasksCol.insertOne(req.body, (err, newTask)=>{
+		if (err) {
+			console.log('Ошибка при создании newTask(', err) 
+			res.send(err);
+		} else {
+			console.log('ok ins newTask id', newTask.insertedId);
+			res.send("OK " + newTask.insertedId);
+		}
 	});
 });
 
 app.post('/update_task', function (req, res) {
-  console.log('update_task body',req.body);
+	console.log('update_task body',req.body);
     
-	client.connect(err => {
-		console.log('mongo client connect');
-		if (err) {
-			console.error('some err on connect to mongo', err);
-			res.send(err);
-			return;
-		}
-		homeTasksCol = client.db("homeTasks").collection("tasks");
-		
-		let newValues = { $set: { lesson: req.body.lesson, taskDescription: req.body.taskDescription, dtDeadline: req.body.dtDeadline } };
+	homeTasksCol = client.db("homeTasks").collection("tasks");
+	
+	let newValues = { $set: { lesson: req.body.lesson, taskDescription: req.body.taskDescription, dtDeadline: req.body.dtDeadline } };
 
-		homeTasksCol.updateOne({_id: ObjectID(req.body._id)}, newValues, function(err) {
-			if (err) {
-				console.log("some err on update", err);
-				res.send('error on update '+err);				
-			} else {
-				console.log("record updated");
-				res.send('OK');
-			}
-		});
+	homeTasksCol.updateOne({_id: ObjectID(req.body._id)}, newValues, function(err) {
+		if (err) {
+			console.log("some err on update", err);
+			res.send('error on update '+err);				
+		} else {
+			console.log("record updated");
+			res.send('OK');
+		}
 	});
 });
 
@@ -132,24 +95,16 @@ app.post('/uploadImage', function (req, res) {
 		}
 	});
 	
-	client.connect(err => {
-		console.log('mongo client connect');
+	homeTasksCol = client.db("homeTasks").collection("tasks");
+	
+	homeTasksCol.updateOne({_id: ObjectID(_id)}, { $push: { taskFileName: name } }, function(err) {
 		if (err) {
-			console.error('some err on connect to mongo', err);
-			res.send(err);
-			return;
+			console.log("some err on update", err);
+			res.send('error on update '+err);				
+		} else {
+			console.log("record updated");
+			res.send('OK');
 		}
-		homeTasksCol = client.db("homeTasks").collection("tasks");
-		
-		homeTasksCol.updateOne({_id: ObjectID(_id)}, { $push: { taskFileName: name } }, function(err) {
-			if (err) {
-				console.log("some err on update", err);
-				res.send('error on update '+err);				
-			} else {
-				console.log("record updated");
-				res.send('OK');
-			}
-		});
 	});
 });
 
@@ -159,26 +114,18 @@ app.post('/delImage', function (req, res) {
 	let _id = req.body.id;
 	let name = req.body.name;
 	console.log('got name to del', name);
+
+	homeTasksCol = client.db("homeTasks").collection("tasks");
 	
-	client.connect(err => {
-		console.log('mongo client connect');
+	homeTasksCol.updateOne({_id: ObjectID(_id)}, { $pull: { taskFileName: name } }, function(err) {
 		if (err) {
-			console.error('some err on connect to mongo', err);
-			res.send(err);
-			return;
+			console.log("some err on del img", err);
+			res.send('error on del img '+err);				
+		} else {
+			console.log("record deleted");
+			res.send('OK');
+			fs.unlink(cPathToSaveTaskImages + name, (err)=>{});
 		}
-		homeTasksCol = client.db("homeTasks").collection("tasks");
-		
-		homeTasksCol.updateOne({_id: ObjectID(_id)}, { $pull: { taskFileName: name } }, function(err) {
-			if (err) {
-				console.log("some err on del img", err);
-				res.send('error on del img '+err);				
-			} else {
-				console.log("record deleted");
-				res.send('OK');
-				fs.unlink(cPathToSaveTaskImages + name, (err)=>{});
-			}
-		});
 	});
 });
 
@@ -187,33 +134,25 @@ app.post('/loadImagesList', function (req, res) {
 
 	let _id = req.body.id;
 
-	client.connect(err => {
-		console.log('mongo client connect');
+	homeTasksCol = client.db("homeTasks").collection("tasks");
+	
+	homeTasksCol.find( { _id: ObjectID(_id) } ).toArray((err, ar)=>{
 		if (err) {
-			console.error('some err on connect to mongo', err);
+			console.log('some err on got homeTasks ', err);			
 			res.send(err);
-			return;
+		} else {
+			console.log('got homeTasksCol ', ar.length);
+			arFiles = [];
+			ar.forEach( el =>{
+				if (el.taskFileName) {
+					el.taskFileName.forEach(name => {
+						console.log('fn to send', name);
+						arFiles.push(name);
+					});
+				}
+			});
+			res.send(JSON.stringify({err, arFiles}));
 		}
-		homeTasksCol = client.db("homeTasks").collection("tasks");
-		
-		homeTasksCol.find( { _id: ObjectID(_id) } ).toArray((err, ar)=>{
-			if (err) {
-				console.log('some err on got homeTasks ', err);			
-				res.send(err);
-			} else {
-				console.log('got homeTasksCol ', ar.length);
-				arFiles = [];
-				ar.forEach( el =>{
-					if (el.taskFileName) {
-						el.taskFileName.forEach(name => {
-							console.log('fn to send', name);
-							arFiles.push(name);
-						});
-					}
-				});
-				res.send(JSON.stringify({err, arFiles}));
-			}
-		});
 	});
 });
 
@@ -239,7 +178,7 @@ app.post('/loadImage', function (req, res) {
 });
 
 app.post('/arch_task', function (req, res) {
-  console.log('arch_task body',req.body);
+	console.log('arch_task body',req.body);
       	
 	let id = req.body.id;
 	if (!id) {
@@ -249,27 +188,19 @@ app.post('/arch_task', function (req, res) {
 	}
 	
 	let mode = req.body.mode;
+	if (mode == 'true') mode = true;
 	
-	client.connect(err => {
-		console.log('mongo client connect');
-		if (err) {
-			console.error('some err on connect to mongo', err);
-			res.send(err);
-			return;
-		}
-		homeTasksCol = client.db("homeTasks").collection("tasks");
+	homeTasksCol = client.db("homeTasks").collection("tasks");
 
-		homeTasksCol.updateOne({_id: ObjectID(id)}, {$set: {isArchive: mode}}, (err, task)=>{
-			if (err) { 
-				console.log('Ошибка при arch_task(', err) 
-				res.send(err);
-			} else {
-				console.log('ok on change state', id);
-				res.send("OK");
-			}
-		});
+	homeTasksCol.updateOne({_id: ObjectID(id)}, {$set: {isArchive: mode}}, (err, task)=>{
+		if (err) { 
+			console.log('Ошибка при arch_task(', err) 
+			res.send(err);
+		} else {
+			console.log('ok on change state', id);
+			res.send("OK");
+		}
 	});
-			
 })
 
 app.post('/del_task', function (req, res) {
@@ -282,31 +213,23 @@ app.post('/del_task', function (req, res) {
 		return;
 	}
 	
-	client.connect(err => {
-		console.log('mongo client connect');
-		if (err) {
-			console.error('some err on connect to mongo', err);
-			res.send(err);
-			return;
-		}
-		homeTasksCol = client.db("homeTasks").collection("tasks");
+	homeTasksCol = client.db("homeTasks").collection("tasks");
 
-		homeTasksCol.deleteOne({_id: ObjectID(idToDel)}, (err, task)=>{
-			if (err) { 
-				console.log('Ошибка при создании newTask(', err) 
-				res.send(err);
-			} else {
-				console.log('ok on del id', idToDel);
-				res.send("OK");
-			}
-		});
+	homeTasksCol.deleteOne({_id: ObjectID(idToDel)}, (err, task)=>{
+		if (err) { 
+			console.log('Ошибка при создании newTask(', err) 
+			res.send(err);
+		} else {
+			console.log('ok on del id', idToDel);
+			res.send("OK");
+		}
 	});
-			
 })
 
 app.post('/hometasks', function (req, res) {
   console.log('hometasks body', req.body);
 	let filter = {};
+
     if (req.body.filter) {
 		if (req.body.filter == 'activeOnly') {
 			filter = {isArchive: { $ne: true }};
@@ -314,26 +237,32 @@ app.post('/hometasks', function (req, res) {
 			filter = {isArchive: true };
 		}
 	}
-	client.connect(err => {
-		console.log('mongo client connect');
-		if (err) {
-			console.error('some err on connect to mongo', err);
-			res.send(err);
-			return;
-		}
-		homeTasksCol = client.db("homeTasks").collection("tasks");
+	if (req.body.city) {
+		filter.city = req.body.city;
+	}
+	if (req.body.school) {
+		filter.school = req.body.school;
+	}
+	/*
+	if (req.body.teacher) {
+		filter.teacher = req.body.teacher;
+	}
+	*/
+	if (req.body.classRoom) {
+		filter.classRoom = req.body.classRoom;
+	}
 
-		homeTasksCol.find( filter ).toArray((err, ar)=>{
-			if (err) {
-				console.log('some err on got homeTasks ', err);			
-				res.send(err);
-			} else {
-				console.log('got homeTasksCol ', ar.length);			
-				res.send(JSON.stringify({err, ar}));
-			}
-		});
+	homeTasksCol = client.db("homeTasks").collection("tasks");
+
+	homeTasksCol.find( filter ).toArray((err, ar)=>{
+		if (err) {
+			console.log('some err on got homeTasks ', err);			
+			res.send(err);
+		} else {
+			console.log('got homeTasksCol ', ar.length);			
+			res.send(JSON.stringify({err, ar}));
+		}
 	});
-	
 })
 
 
@@ -348,24 +277,17 @@ app.post('/getPupils', function (req, res) {
 		res.send(e);
 		return;
 	}
-	client.connect(err => {
-		console.log('mongo client connect');
-		if (err) {
-			console.error('some err on connect to mongo', err);
-			res.send(err);
-			return;
-		}
-		let col = client.db("homeTasks").collection("pupils");
 
-		col.find( filter ).toArray((err, ar)=>{
-			if (err) {
-				console.log('some err on got pupils ', err);			
-				res.send(err);
-			} else {
-				console.log('got pupils ', ar.length);			
-				res.send(JSON.stringify({err, ar}));
-			}
-		});
+	let col = client.db("homeTasks").collection("pupils");
+
+	col.find( filter ).toArray((err, ar)=>{
+		if (err) {
+			console.log('some err on got pupils ', err);			
+			res.send(err);
+		} else {
+			console.log('got pupils ', ar.length);			
+			res.send(JSON.stringify({err, ar}));
+		}
 	});
 })
 
@@ -378,51 +300,34 @@ app.post('/add_pupil', function (req, res) {
 		return;
 	}
 
-	client.connect(err => {
-		console.log('mongo client connect');
+	homeTasksCol = client.db("homeTasks").collection("pupils");
+
+	homeTasksCol.insertOne(req.body, (err, newPupil)=>{
 		if (err) {
-			console.error('some err on connect to mongo', err);
+			console.log('Ошибка при создании newPupil(', err) 
 			res.send(err);
-			return;
+		} else {
+			console.log('ok ins newTask id', newPupil.insertedId);
+			res.send("OK " + newPupil.insertedId);
 		}
-		homeTasksCol = client.db("homeTasks").collection("pupils");
-
-		homeTasksCol.insertOne(req.body, (err, newPupil)=>{
-			if (err) {
-				console.log('Ошибка при создании newPupil(', err) 
-				res.send(err);
-			} else {
-				console.log('ok ins newTask id', newPupil.insertedId);
-				res.send("OK " + newPupil.insertedId);
-			}
-		});
 	});
-
 });
 
-app.post('/updatche_pupil', function (req, res) {
+app.post('/update_pupil', function (req, res) {
   console.log('update_pupil body',req.body);
     
-	client.connect(err => {
-		console.log('mongo client connect');
-		if (err) {
-			console.error('some err on connect to mongo', err);
-			res.send(err);
-			return;
-		}
-		homeTasksCol = client.db("homeTasks").collection("pupils");
-		
-		let newValues = { $set: { fio: req.body.fio, password: req.body.password } };
+	homeTasksCol = client.db("homeTasks").collection("pupils");
+	
+	let newValues = { $set: { fio: req.body.fio, password: req.body.password } };
 
-		homeTasksCol.updateOne({_id: ObjectID(req.body._id)}, newValues, function(err) {
-			if (err) {
-				console.log("some err on update", err);
-				res.send('error on update '+err);				
-			} else {
-				console.log("record updated");
-				res.send('OK');
-			}
-		});
+	homeTasksCol.updateOne({_id: ObjectID(req.body._id)}, newValues, function(err) {
+		if (err) {
+			console.log("some err on update", err);
+			res.send('error on update '+err);				
+		} else {
+			console.log("record updated");
+			res.send('OK');
+		}
 	});
 });
 
@@ -435,36 +340,28 @@ app.post('/check_pupil', function (req, res) {
 		return;
 	}
 
-	client.connect(err => {
-		console.log('mongo client connect');
-		if (err) {
-			console.error('some err on connect to mongo', err);
-			res.send(err);
-			return;
-		}
-		homeTasksCol = client.db("homeTasks").collection("pupils");
+	homeTasksCol = client.db("homeTasks").collection("pupils");
 
-		homeTasksCol.findOne(
-			{city: req.body.city, school: req.body.school, classRoom: req.body.classRoom, fio: req.body.fio}
-			, (err, pupil)=>{
-				if (err) {
-					res.send(err);
-				} else {
-					console.log('found pupil data', pupil);
-					if (!pupil) {
-						res.send("err");												
-					}
-					if (pupil.password == req.body.password) {
-						console.log('password ok')
-						res.send("OK " + pupil._id);
-					} else {
-						console.log('password wrong')
-						res.send("err");						
-					}
+	homeTasksCol.findOne(
+		{city: req.body.city, school: req.body.school, classRoom: req.body.classRoom, fio: req.body.fio}
+		, (err, pupil)=>{
+			if (err) {
+				res.send(err);
+			} else {
+				console.log('found pupil data', pupil);
+				if (!pupil) {
+					res.send("err");												
 				}
-			});
-	});
-
+				if (pupil.password == req.body.password) {
+					console.log('password ok')
+					res.send("OK " + pupil._id);
+				} else {
+					console.log('password wrong')
+					res.send("err");						
+				}
+			}
+		}
+	);
 });
 
 // pupil's task
@@ -488,47 +385,37 @@ app.post('/uploadPupilImage', function (req, res) {
 			console.log('image written to disk', fname);
 		}
 	});
-
-	client.connect(err => {
-		console.log('mongo client connect');
-		if (err) {
-			console.error('some err on connect to mongo', err);
-			res.send(err);
-			return;
+		
+	col = client.db("homeTasks").collection("pupilSolvedTasks");
+	
+	col.find({ taskId, pupilId }).toArray((err,ar)=>{
+		if (ar.length > 0) {
+			col.updateOne({ taskId, pupilId }, { $push: { files: fname } }, function(err) {
+				if (err) {
+					console.log("some err on update", err);
+					res.send('error on update '+err);				
+				} else {
+					console.log("record updated");
+					res.send('OK');
+				}
+			});				
+		} else {
+			let arFiles = []; arFiles.push(fname);
+			col.insertOne({ taskId, pupilId, files: arFiles }, (err, newTask)=>{
+				if (err) {
+					console.log('Ошибка при создании pupilSolvedTasks(', err) 
+					res.send(err);
+				} else {
+					console.log('ok ins pupilSolvedTasks id', newTask.insertedId);
+					res.send("OK " + newTask.insertedId);
+				}
+			});
 		}
-		
-		col = client.db("homeTasks").collection("pupilSolvedTasks");
-		
-		col.find({ taskId, pupilId }).toArray((err,ar)=>{
-			if (ar.length > 0) {
-				col.updateOne({ taskId, pupilId }, { $push: { files: fname } }, function(err) {
-					if (err) {
-						console.log("some err on update", err);
-						res.send('error on update '+err);				
-					} else {
-						console.log("record updated");
-						res.send('OK');
-					}
-				});				
-			} else {
-				let arFiles = []; arFiles.push(fname);
-				col.insertOne({ taskId, pupilId, files: arFiles }, (err, newTask)=>{
-					if (err) {
-						console.log('Ошибка при создании pupilSolvedTasks(', err) 
-						res.send(err);
-					} else {
-						console.log('ok ins pupilSolvedTasks id', newTask.insertedId);
-						res.send("OK " + newTask.insertedId);
-					}
-				});
-			}
-		});
-
 	});
 });
 
 app.post('/updateImage', function (req, res) {
-	console.log('updateImage ', req.body.id, req.body.name);
+	console.log('updateImage ', req.body.type, req.body.name);
 
 	let fileName = req.body.name;
 	let type = req.body.type;
@@ -560,27 +447,17 @@ app.post('/getPupilSolvedTaskData', function (req, res) {
 	let pupilId = req.body.pupilId;
 	
 	console.log('got taskId', taskId, 'pupilId', pupilId);
+			
+	col = client.db("homeTasks").collection("pupilSolvedTasks");
 	
-	client.connect(err => {
-		console.log('mongo client connect');
+	col.find({ taskId, pupilId }).toArray((err,ar)=>{
 		if (err) {
-			console.error('some err on connect to mongo', err);
+			console.log('got err', err);
 			res.send(err);
 			return;
 		}
-		
-		col = client.db("homeTasks").collection("pupilSolvedTasks");
-		
-		col.find({ taskId, pupilId }).toArray((err,ar)=>{
-			if (err) {
-				console.log('got err', err);
-				res.send(err);
-				return;
-			}
-			console.log('got', ar);
-			res.send(JSON.stringify({data: ar[0]}));
-		});
-
+		console.log('got', ar);
+		res.send(JSON.stringify({data: ar[0]}));
 	});
 });
 
@@ -604,26 +481,17 @@ app.post('/markPupilSolvedTask', function (req, res) {
 	}
 	
 	console.log('got params for marking solvedTaskId', _id, 'mark', mark);
+			
+	col = client.db("homeTasks").collection("pupilSolvedTasks");
 	
-	client.connect(err => {
-		console.log('mongo client connect');
-		if (err) {
-			console.error('some err on connect to mongo', err);
+	col.updateOne({ _id: ObjectID(_id) }, {$set: {mark}}, (err, task)=>{
+		if (err) { 
+			console.log('Ошибка при markPupilTask(', err) 
 			res.send(err);
-			return;
+		} else {
+			console.log('ok on markPupilTask');
+			res.send("OK");
 		}
-		
-		col = client.db("homeTasks").collection("pupilSolvedTasks");
-		
-		col.updateOne({ _id: ObjectID(_id) }, {$set: {mark}}, (err, task)=>{
-			if (err) { 
-				console.log('Ошибка при markPupilTask(', err) 
-				res.send(err);
-			} else {
-				console.log('ok on markPupilTask');
-				res.send("OK");
-			}
-		});
 	});
 });
 
@@ -641,39 +509,30 @@ app.post('/markPupilTaskAsSolved', function (req, res) {
 	
 	console.log('got taskId', taskId, 'pupilId', pupilId);
 	
-	client.connect(err => {
-		console.log('mongo client connect');
-		if (err) {
-			console.error('some err on connect to mongo', err);
-			res.send(err);
-			return;
+	col = client.db("homeTasks").collection("pupilSolvedTasks");
+	
+	col.find({ taskId, pupilId }).toArray((err,ar)=>{
+		if (ar.length > 0) {
+			col.updateOne({ taskId, pupilId }, {$set: {isSolved: true}}, (err, task)=>{
+				if (err) { 
+					console.log('Ошибка при markPupilTaskAsSolved(', err) 
+					res.send(err);
+				} else {
+					console.log('ok on markPupilTaskAsSolved');
+					res.send("OK");
+				}
+			});
+		} else {
+			col.insertOne({ taskId, pupilId, isSolved: true }, (err, newTask)=>{
+				if (err) {
+					console.log('Ошибка при создании pupilSolvedTasks(', err) 
+					res.send(err);
+				} else {
+					console.log('ok ins pupilSolvedTasks id', newTask.insertedId);
+					res.send("OK");
+				}
+			});	
 		}
-		
-		col = client.db("homeTasks").collection("pupilSolvedTasks");
-		
-		col.find({ taskId, pupilId }).toArray((err,ar)=>{
-			if (ar.length > 0) {
-				col.updateOne({ taskId, pupilId }, {$set: {isSolved: true}}, (err, task)=>{
-					if (err) { 
-						console.log('Ошибка при markPupilTaskAsSolved(', err) 
-						res.send(err);
-					} else {
-						console.log('ok on markPupilTaskAsSolved');
-						res.send("OK");
-					}
-				});
-			} else {
-				col.insertOne({ taskId, pupilId, isSolved: true }, (err, newTask)=>{
-					if (err) {
-						console.log('Ошибка при создании pupilSolvedTasks(', err) 
-						res.send(err);
-					} else {
-						console.log('ok ins pupilSolvedTasks id', newTask.insertedId);
-						res.send("OK");
-					}
-				});	
-			}
-		});
 	});
 });
 
@@ -695,26 +554,17 @@ app.post('/getPupilTasks', function (req, res) {
 	
 	console.log('got filter', filter);
 	
-	client.connect(err => {
-		console.log('mongo client connect');
-		if (err) {
-			console.error('some err on connect to mongo', err);
-			res.send(err);
-			return;
-		}
-		homeTasksCol = client.db("homeTasks").collection("tasks");
-		
-		homeTasksCol.find( filter ).toArray((err, ar)=>{
-			if (err) {
-				console.log('some err on got homeTasks ', err);			
-				res.send(err);
-			} else {
-				console.log('got homeTasksCol ', ar.length);
-				res.send(JSON.stringify({err, ar}));
-			}
-		});
-	});
+	homeTasksCol = client.db("homeTasks").collection("tasks");
 	
+	homeTasksCol.find( filter ).toArray((err, ar)=>{
+		if (err) {
+			console.log('some err on got homeTasks ', err);			
+			res.send(err);
+		} else {
+			console.log('got homeTasksCol ', ar.length);
+			res.send(JSON.stringify({err, ar}));
+		}
+	});	
 })
 
 //{"taskId":"5fa2b69f8f202d2bd08ef265","pupilsId":["5f9f1a0e020485aa186d781c","5f9f1a5a020485aa186d781d","5f9f1ad4020485aa186d781e"]}
@@ -742,40 +592,31 @@ app.post('/getTasksStatus', function (req, res) {
 	
 	console.log('got filter', filter);
 	
-	client.connect(err => {
-		console.log('mongo client connect');
-		if (err) {
-			console.error('some err on connect to mongo', err);
-			res.send(err);
-			return;
-		}
-		col = client.db("homeTasks").collection("pupilSolvedTasks");
-		
-		col.find( filter ).toArray((err, ar)=>{
-			if (err) {
-				console.log('some err on get pupilSolvedTasks ', err);			
-				res.send(err);
-			} else {
-				console.log('got pupilSolvedTasks ', ar.length);
-				console.log('got pupilSolvedTasks ', ar);
-				
-				let arTaskStatus = [];
-				ar.forEach(el=>{
-					stateEl = {};
-					stateEl.taskId = el.taskId;
-					stateEl.status = '';
-					if (el.mark) {
-						stateEl.status = el.mark;
-					} else if (el.isSolved) {
-						stateEl.status = '-';
-					}
-					arTaskStatus.push(stateEl);
-				});
-				res.send(JSON.stringify({err, arTaskStatus}));
-			}
-		});
-	});
+	col = client.db("homeTasks").collection("pupilSolvedTasks");
 	
+	col.find( filter ).toArray((err, ar)=>{
+		if (err) {
+			console.log('some err on get pupilSolvedTasks ', err);			
+			res.send(err);
+		} else {
+			console.log('got pupilSolvedTasks ', ar.length);
+			console.log('got pupilSolvedTasks ', ar);
+			
+			let arTaskStatus = [];
+			ar.forEach(el=>{
+				stateEl = {};
+				stateEl.taskId = el.taskId;
+				stateEl.status = '';
+				if (el.mark) {
+					stateEl.status = el.mark;
+				} else if (el.isSolved) {
+					stateEl.status = '-';
+				}
+				arTaskStatus.push(stateEl);
+			});
+			res.send(JSON.stringify({err, arTaskStatus}));
+		}
+	});	
 })
 
 app.post('/getPupilsTaskStates', function (req, res) {
@@ -790,7 +631,6 @@ app.post('/getPupilsTaskStates', function (req, res) {
 		return;
 	}
 
-
 	let filter = {};	
 	filter.taskId = taskId;
 	
@@ -801,67 +641,51 @@ app.post('/getPupilsTaskStates', function (req, res) {
 	
 	console.log('got filter', filter);
 	
-	client.connect(err => {
-		console.log('mongo client connect');
-		if (err) {
-			console.error('some err on connect to mongo', err);
-			res.send(err);
-			return;
-		}
-		col = client.db("homeTasks").collection("pupilSolvedTasks");
-		
-		col.find( filter ).toArray((err, ar)=>{
-			if (err) {
-				console.log('some err on get getPupilsTaskStates ', err);			
-				res.send(err);
-			} else {
-				console.log('got getPupilsTaskStates ', ar.length);
-				console.log('got getPupilsTaskStates ', ar);
-				
-				let arTaskStatus = [];
-				ar.forEach(el=>{
-					stateEl = {};
-					stateEl.pupilId = el.pupilId;
-					stateEl.status = '';
-					if (el.mark) {
-						stateEl.status = el.mark;
-					} else if (el.isSolved) {
-						stateEl.status = '-';
-					}
-					arTaskStatus.push(stateEl);
-				});
-				res.send(JSON.stringify({err, ar: arTaskStatus}));
-			}
-		});
-	});
+	col = client.db("homeTasks").collection("pupilSolvedTasks");
 	
+	col.find( filter ).toArray((err, ar)=>{
+		if (err) {
+			console.log('some err on get getPupilsTaskStates ', err);			
+			res.send(err);
+		} else {
+			console.log('got getPupilsTaskStates ', ar.length);
+			console.log('got getPupilsTaskStates ', ar);
+			
+			let arTaskStatus = [];
+			ar.forEach(el=>{
+				stateEl = {};
+				stateEl.pupilId = el.pupilId;
+				stateEl.status = '';
+				if (el.mark) {
+					stateEl.status = el.mark;
+				} else if (el.isSolved) {
+					stateEl.status = '-';
+				}
+				arTaskStatus.push(stateEl);
+			});
+			res.send(JSON.stringify({err, ar: arTaskStatus}));
+		}
+	});	
 })
 
 
 //********************** city ************************ 
 
 app.post('/getCities', function (req, res) {
-  console.log('getCities body', req.body);
-	client.connect(err => {
-		console.log('mongo client connect');
-		if (err) {
-			console.error('some err on connect to mongo', err);
-			res.send(err);
-			return;
-		}
-		let col = client.db("homeTasks").collection("cities");
+	console.log('getCities body', req.body);
+	
+	let col = client.db("homeTasks").collection("cities");
 
-		col.find( {} ).toArray((err, ar)=>{
-			if (err) {
-				console.log('some err on got cities', err);			
-				res.send(err);
-			} else {
-				console.log('got cities ', ar.length);			
-				res.send(JSON.stringify({err, ar}));
-			}
-		});
+	col.find( {} ).toArray((err, ar)=>{
+		if (err) {
+			console.log('some err on got cities', err);			
+			res.send(err);
+		} else {
+			console.log('got cities ', ar.length);			
+			res.send(JSON.stringify({err, ar}));
+		}
 	});
-})
+});
 
 
 app.post('/add_city', function (req, res) {
@@ -873,29 +697,306 @@ app.post('/add_city', function (req, res) {
 		return;
 	}
 
-	client.connect(err => {
-		console.log('mongo client connect');
+	homeTasksCol = client.db("homeTasks").collection("cities");
+
+	homeTasksCol.insertOne(req.body, (err, newRecord)=>{
 		if (err) {
-			console.error('some err on connect to mongo', err);
+			console.log('err on ins new city(', err) 
 			res.send(err);
-			return;
+		} else {
+			console.log('ok on ins newCity, got id', newRecord.insertedId);
+			res.send("OK " + newRecord.insertedId);
 		}
-		homeTasksCol = client.db("homeTasks").collection("cities");
-
-		homeTasksCol.insertOne(req.body, (err, newRecord)=>{
-			if (err) {
-				console.log('err on ins new city(', err) 
-				res.send(err);
-			} else {
-				console.log('ok on ins newCity, got id', newRecord.insertedId);
-				res.send("OK " + newRecord.insertedId);
-			}
-		});
 	});
+});
 
+//-------------------- Lessons -------------------------
+
+app.post('/getLessons', function (req, res) {
+	console.log('getLessons body', req.body);
+	
+	let col = client.db("homeTasks").collection("lessons");
+
+	col.find( {} ).toArray((err, ar)=>{
+		if (err) {
+			console.log('some err on got lessons', err);			
+			res.send(err);
+		} else {
+			console.log('got lessons ', ar.length);			
+			res.send(JSON.stringify({err, ar}));
+		}
+	});
+});
+
+app.post('/addLesson', function (req, res) {
+	console.log('addLesson body',req.body);
+
+	if (!req.body.lesson) {
+		console.log('err addLesson( No Lesson!');
+		res.send('err. no Lesson to add');
+		return;
+	}
+
+	homeTasksCol = client.db("homeTasks").collection("lessons");
+
+	homeTasksCol.insertOne({lesson: req.body.lesson}, (err, newRecord)=>{
+		if (err) {
+			console.log('err on ins new lesson(', err) 
+			res.send(err);
+		} else {
+			console.log('ok on ins lesson, got id', newRecord.insertedId);
+			res.send("OK " + newRecord.insertedId);
+		}
+	});
+});
+
+app.post('/delLesson', function (req, res) {
+	console.log('delLesson body',req.body);
+
+	if (!req.body.lesson) {
+		console.log('err delLesson( No Lesson!');
+		res.send('err. no lessson to del');
+		return;
+	}
+	if (!req.body.masterKey || req.body.masterKey!='123456789') {
+		console.log('err lessson.');
+		res.send('err.');
+		return;
+	}
+	homeTasksCol = client.db("homeTasks").collection("lessons");
+
+	homeTasksCol.deleteOne({lesson: req.body.lesson}, (err, deletedLesson)=>{
+		if (err) {
+			console.log('err on del new lesson(', err) 
+			res.send(err);
+		} else {
+			console.log('ok on del lesson, got', deletedLesson);
+			res.send("OK");
+		}
+	});
 });
 
 //---------------------------------------------
+
+//-------------------- Teachers -------------------------
+
+app.post('/getTeachers', function (req, res) {
+	console.log('getTeachers body', req.body);
+	
+	let col = client.db("homeTasks").collection("teachers");
+	
+	filter = {}; 
+	if (req.body.city && req.body.city.length > 0){
+		filter.city = req.body.city;
+	}
+	if (req.body.school && req.body.school.length > 0){
+		filter.school = req.body.school;
+	}
+	if (req.body.id){
+		filter._id = ObjectID(req.body.id);
+	}
+	
+	col.find( filter ).toArray((err, ar)=>{
+		if (err) {
+			console.log('some err on got teachers', err);			
+			res.send(err);
+		} else {
+			console.log('got teachers ', ar.length);
+			let arToSend = [];
+			ar.forEach(el=>{
+				let elToAdd = {_id: el._id, fio: el.fio, city: el.city, school: el.school, ownerId: el.ownerId};
+				if (el.ownerId == req.body.ownerId) {
+					elToAdd.pwd = el.pwd;
+				}
+				arToSend.push(elToAdd);
+			});
+			res.send(JSON.stringify({err, ar: arToSend}));
+		}
+	});
+});
+
+app.post('/checkTeacherPwd', function (req, res) {
+	console.log('checkTeacherPwd body', req.body);
+	
+	if (!req.body.fio || !req.body.city || !req.body.school || !req.body.pwd) {
+		console.log('err checkTeacherPwd( No data!');
+		res.send('err on teacher check.');
+		return;
+	}
+
+	let col = client.db("homeTasks").collection("teachers");
+
+	col.findOne( {fio: req.body.fio, city: req.body.city, school: req.body.school}, (err, teacher)=>{
+		if (err) {
+			console.log('err checkTeacherPwd(', err);
+			res.send('err on teacher check');
+			return;			
+		}
+		if (!teacher) {
+			console.log('err checkTeacherPwd( no such teacher.');
+			res.send('err on teacher check');
+			return;						
+		}
+		if (teacher.pwd != req.body.pwd) {
+			console.log('worng password.', teacher.pwd, req.body.pwd);
+			res.send('err on teacher check');			
+		} else {
+			console.log('ok password check');
+			res.send('OK '+teacher._id);						
+		}
+	});
+});
+
+app.post('/addTeacher', function (req, res) {
+	console.log('addTeachers body',req.body);
+
+	if (!req.body.fio) {
+		console.log('err addTeachers( No teacher!');
+		res.send('err. no teacher to add');
+		return;
+	}
+
+	let col = client.db("homeTasks").collection("teachers");
+	
+	col.find({fio: req.body.fio, city: req.body.city, school: req.body.school}).toArray((err, ar)=>{
+		if (err || ar.length==0){
+			col.insertOne(
+				{fio: req.body.fio, city: req.body.city, school: req.body.school, pwd: req.body.pwd, ownerId: req.body.ownerId }, (err, newRecord)=>{
+				if (err) {
+					console.log('err on ins new teacher(', err) 
+					res.send(err);
+				} else {
+					console.log('ok on ins teacher, got id', newRecord.insertedId);
+					res.send("OK " + newRecord.insertedId);
+				}
+			});			
+		} else {
+			console.log('err on ins. There is such teacher in db');
+			res.send('err on ins. There is such teacher in db');			
+		}
+	});
+	
+});
+
+app.post('/updateTeacher', function (req, res) {
+	console.log('updateTeacher body',req.body);
+
+	if (!req.body.pwd) {
+		console.log('err updateTeacher( No teacher\'s data!');
+		res.send('err. no teacher\'s data');
+		return;
+	}
+
+	let col = client.db("homeTasks").collection("teachers");
+	
+	let newValues = { $set: { pwd: req.body.pwd } };
+	
+	col.updateOne({fio: req.body.fio, city: req.body.city, school: req.body.school}, newValues, (err)=>{
+		if (err){
+			console.log('err on update', err);
+			res.send('err on update. '+err);
+		} else {
+			console.log('ok on update teacher');
+			res.send("OK");
+		}
+	});
+});
+
+app.post('/delTeacher', function (req, res) {
+	console.log('delTeacher body',req.body);
+
+	if (!req.body.teacherId) {
+		console.log('err delTeacher( No teacher!');
+		res.send('err. no teacher to del');
+		return;
+	}
+	if (!req.body.masterKey || req.body.masterKey!='123456789') {
+		console.log('err teacher.');
+		res.send('err.');
+		return;
+	}
+	let col = client.db("homeTasks").collection("teachers");
+
+	col.deleteOne({_id: ObjectID(req.body.teacherId)}, (err, deletedRecord)=>{
+		if (err) {
+			console.log('err on del teacher(', err) 
+			res.send(err);
+		} else {
+			console.log('ok on del teacher ',deletedRecord);
+			res.send("OK");
+		}
+	});
+});
+
+//---------------------------------------------
+// ------------- Schools ----------------------
+app.post('/getSchools', function (req, res) {
+  console.log('getSchools body', req.body);
+	let filter = {};
+	if (req.body.city) {
+		filter = {city: req.body.city};		
+	}
+
+	let col = client.db("homeTasks").collection("schools");
+
+	col.find( filter ).toArray((err, ar)=>{
+		if (err) {
+			console.log('some err on got schools ', err);			
+			res.send(err);
+		} else {
+			console.log('got schools ', ar.length);			
+			res.send(JSON.stringify({err, ar}));
+		}
+	});
+});
+
+app.post('/addSchool', function (req, res) {
+	console.log('addSchool body',req.body);
+
+	if (!req.body.school || !req.body.city) {
+		console.log('err addSchool( no req data!');
+		res.send('err. no data to add');
+		return;
+	}
+
+	homeTasksCol = client.db("homeTasks").collection("schools");
+
+	homeTasksCol.insertOne({city: req.body.city, school: req.body.school}, (err, newRecord)=>{
+		if (err) {
+			console.log('Ошибка при создании new school(', err) 
+			res.send(err);
+		} else {
+			console.log('ok ins new school id', newRecord.insertedId);
+			res.send("OK " + newRecord.insertedId);
+		}
+	});
+});
+
+app.post('/updateSchool', function (req, res) {
+	console.log('updateSchool body',req.body);
+
+	if (!req.body.school || !req.body._id) {
+		console.log('err data to update school( no req data!');
+		res.send('err. no data to update school');
+		return;
+	}
+    
+	homeTasksCol = client.db("homeTasks").collection("schools");
+	
+	let newValues = { $set: { school: req.body.school } };
+
+	homeTasksCol.updateOne({_id: ObjectID(req.body._id)}, newValues, function(err) {
+		if (err) {
+			console.log("some err on update", err);
+			res.send('error on update '+err);				
+		} else {
+			console.log("record updated");
+			res.send('OK');
+		}
+	});
+});
+
+// -------------------------------------
 
 function conv2Eng(rus){
 	let reObj = {

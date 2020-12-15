@@ -4,7 +4,8 @@ import 'Services.dart' as MyServices;
 
 class EditPupil extends StatefulWidget {
   final Pupil pupil;
-  EditPupil(this.pupil);
+  final int lang;
+  EditPupil(this.pupil, this.lang);
 
   @override
   _EditPupilState createState() => _EditPupilState();
@@ -16,9 +17,6 @@ class _EditPupilState extends State<EditPupil> {
 
   @override
   void initState() {
-    //var r = Random();
-    //const _chars = 'ЙйЁёЦцУуКкЕеНнГгШШщЩЗзХхЪъФфЫыВвАаПпРрОоЛлДдЖжЭэЯяЧчСсМмИиТтЬьБбЮю';
-    //_pwdEditingController.text = List.generate(6, (index) => _chars[r.nextInt(_chars.length)]).join();
     _fioEditingController.text = widget.pupil.fio;
     _pwdEditingController.text = widget.pupil.password;
     super.initState();
@@ -28,7 +26,7 @@ class _EditPupilState extends State<EditPupil> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Изменяем данные ученика'),
+        title: Text(MyServices.msgs['Изменяем данные ученика'][widget.lang]),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -37,7 +35,7 @@ class _EditPupilState extends State<EditPupil> {
             TextField(
               maxLines: 2,
               style: TextStyle(fontSize: 18),
-              decoration: InputDecoration(labelText: 'Фамилия, имя'),
+              decoration: InputDecoration(labelText: MyServices.msgs['Фамилия и имя'][widget.lang]),
               controller: _fioEditingController,
               maxLength: 200,
             ),
@@ -73,6 +71,14 @@ class _EditPupilState extends State<EditPupil> {
     print('save with ${_fioEditingController.text} pwd ${_pwdEditingController.text}');
     String newFio = _fioEditingController.text.trim();
     String newPwd = _pwdEditingController.text.trim();
+    if (newFio == '') {
+      MyServices.showAlertPage(context, MyServices.msgs['Укажите фамилию и имя'][widget.lang]);
+      return;
+    }
+    if (newPwd == '') {
+      MyServices.showAlertPage(context, MyServices.msgs['Укажите пароль'][widget.lang]);
+      return;
+    }
     MyServices.editPupil(widget.pupil.id, newFio, newPwd)
     .then((result){
       print('got $result on edit');
