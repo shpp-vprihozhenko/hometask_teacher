@@ -1,3 +1,6 @@
+*.aab
+*.apk
+
 # Miscellaneous
 *.class
 *.log
